@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
@@ -336,6 +337,22 @@ export default function SettingsScreen() {
           value={themeMode}
           onChange={(value) => setThemeMode(value as ThemeMode)}
         />
+      </View>
+
+      <SectionTitle icon="chatbubble-ellipses" title="M-Pesa" />
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable onPress={() => router.push("/mpesa")} style={styles.currencyRow}>
+          <View style={[styles.rowIcon, { backgroundColor: `${accent}1F` }]}>
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={accent} />
+          </View>
+          <View style={styles.rowBody}>
+            <Text style={[styles.rowName, { color: colors.text }]}>Import M-Pesa messages</Text>
+            <Text style={[styles.rowType, { color: colors.textFaint }]}>
+              Turn M-Pesa SMS into transactions
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+        </Pressable>
       </View>
 
       <SectionTitle icon="server" title="Data" />
