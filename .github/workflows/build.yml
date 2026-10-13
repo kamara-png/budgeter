@@ -7,11 +7,6 @@ on:
         description: Also build the web bundle
         type: boolean
         default: true
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
 
 concurrency:
   group: build-${{ github.ref }}
@@ -90,7 +85,7 @@ jobs:
   web:
     name: Web bundle
     needs: checks
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_web }}
+    if: ${{ inputs.build_web }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
