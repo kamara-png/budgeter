@@ -21,7 +21,6 @@ const styles = StyleSheet.create({
   headerLogo: {
     width: 28,
     height: 28,
-    borderRadius: 7,
   },
   headerTitleText: {
     fontSize: 18,
@@ -71,9 +70,10 @@ export default function TabsLayout() {
             headerTitle: () => (
               <View style={styles.headerTitle}>
                 <Image
-                  source={require("../../../assets/header-logo.png")}
+                  source={require("../../../assets/logo-mark.png")}
                   style={styles.headerLogo}
                   resizeMode="contain"
+                  tintColor={colors.text}
                 />
                 <Text style={[styles.headerTitleText, { color: colors.text }]}>Budgeter</Text>
               </View>
