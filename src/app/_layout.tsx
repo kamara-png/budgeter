@@ -42,15 +42,6 @@ export default function RootLayout() {
             title: "Transaction",
           }}
         />
-        <Stack.Screen
-          name="mpesa"
-          options={{
-            presentation: "modal",
-            animation: "none",
-            contentStyle: { backgroundColor: colors.background },
-            title: "Import from M-Pesa",
-          }}
-        />
       </Stack>
     </ThemeProvider>
   );

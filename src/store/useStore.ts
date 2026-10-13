@@ -18,13 +18,10 @@ interface AppState {
   themeMode: ThemeMode;
   currency: Currency;
   accent: string;
-  importedMpesaIds: string[];
 
   addTransaction: (input: NewTransactionInput) => void;
-  addTransactions: (inputs: NewTransactionInput[]) => void;
   updateTransaction: (id: string, patch: Partial<NewTransactionInput>) => void;
   deleteTransaction: (id: string) => void;
-  markMpesaImported: (ids: string[]) => void;
   setBudget: (categoryId: string, amount: number) => void;
   setOverallBudget: (period: BudgetPeriod, amount: number) => void;
   setThemeMode: (mode: ThemeMode) => void;
@@ -36,18 +33,6 @@ interface AppState {
   clearAll: () => void;
 }
 
-type PersistedState = Pick<
-  AppState,
-  | "transactions"
-  | "categories"
-  | "budgets"
-  | "overallBudgets"
-  | "themeMode"
-  | "currency"
-  | "accent"
-  | "importedMpesaIds"
->;
-
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
@@ -58,7 +43,6 @@ export const useStore = create<AppState>()(
       themeMode: "system",
       currency: DEFAULT_CURRENCY,
       accent: DEFAULT_ACCENT,
-      importedMpesaIds: [],
 
       addTransaction: (input) =>
         set((state) => ({
@@ -66,23 +50,6 @@ export const useStore = create<AppState>()(
             { ...input, id: uid(), createdAt: new Date().toISOString() },
             ...state.transactions,
           ],
-        })),
-
-      addTransactions: (inputs) =>
-        set((state) => ({
-          transactions: [
-            ...inputs.map((input) => ({
-              ...input,
-              id: uid(),
-              createdAt: new Date().toISOString(),
-            })),
-            ...state.transactions,
-          ],
-        })),
-
-      markMpesaImported: (ids) =>
-        set((state) => ({
-          importedMpesaIds: Array.from(new Set([...state.importedMpesaIds, ...ids])),
         })),
 
       updateTransaction: (id, patch) =>
@@ -154,9 +121,8 @@ export const useStore = create<AppState>()(
     }),
     {
       name: "budgeter-storage-v1",
-      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state): PersistedState => ({
+      partialize: (state) => ({
         transactions: state.transactions,
         categories: state.categories,
         budgets: state.budgets,
@@ -164,21 +130,7 @@ export const useStore = create<AppState>()(
         themeMode: state.themeMode,
         currency: state.currency,
         accent: state.accent,
-        importedMpesaIds: state.importedMpesaIds,
       }),
-      migrate: (persisted, version) => {
-        const state = (persisted ?? {}) as PersistedState;
-        if (version < 2) {
-          const existing = state.categories ?? DEFAULT_CATEGORIES;
-          const ids = new Set(existing.map((c) => c.id));
-          state.categories = [
-            ...existing,
-            ...DEFAULT_CATEGORIES.filter((c) => !ids.has(c.id)),
-          ];
-          state.importedMpesaIds = state.importedMpesaIds ?? [];
-        }
-        return state;
-      },
     },
   ),
 );
