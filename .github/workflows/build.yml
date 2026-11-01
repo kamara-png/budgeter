@@ -1,4 +1,4 @@
-name: Build
+name: Build & Release
 
 on:
   workflow_dispatch:
@@ -7,6 +7,9 @@ on:
         description: Also build the web bundle
         type: boolean
         default: true
+  push:
+    tags:
+      - "v*"
 
 concurrency:
   group: build-${{ github.ref }}
@@ -57,6 +60,17 @@ jobs:
           java-version: 17
       - name: Install dependencies
         run: npm ci
+      - name: Set app version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const version = process.env.GITHUB_REF_NAME.replace(/^v/, '');
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          app.expo.version = version;
+          fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
+          console.log(`Set app version to ${version}`);
+          EOF
       - name: Generate native project
         run: npx expo prebuild --platform android --clean
       - name: Point Gradle at the Android SDK
@@ -106,3 +120,52 @@ jobs:
           name: web-dist
           path: dist
           if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: android
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download Android artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: android-release
+          path: artifacts
+      - name: Prepare release asset
+        run: |
+          set -euo pipefail
+          APK=$(find artifacts -type f -name '*.apk' | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "No APK found in artifacts" >&2
+            exit 1
+          fi
+          cp "$APK" "Budgeter-${GITHUB_REF_NAME}.apk"
+          ls -lh "Budgeter-${GITHUB_REF_NAME}.apk"
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          ASSET: Budgeter-${{ github.ref_name }}.apk
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" \
+              --title "Budgeter $TAG" \
+              --generate-notes \
+              --verify-tag \
+              --notes "$(cat <<'EOF'
+          ## Install on Android
+
+          1. Download the `.apk` file below **on your phone**.
+          2. Tap it in your downloads and allow installing from unknown sources when prompted.
+          3. Open **Budgeter** from your app drawer.
+
+          New versions install over the top of the old one — no need to uninstall first.
+          EOF
+          )"
+          fi
