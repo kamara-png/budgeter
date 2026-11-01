@@ -149,6 +149,28 @@ jobs:
           fi
           cp "$APK" "Budgeter-${GITHUB_REF_NAME}.apk"
           ls -lh "Budgeter-${GITHUB_REF_NAME}.apk"
+      - name: Prepare release notes
+        run: |
+          set -euo pipefail
+          PREV=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          {
+            echo "## Install on Android"
+            echo
+            echo "1. Download the \`.apk\` file below **on your phone**."
+            echo "2. Tap it in your downloads and allow installing from unknown sources when prompted."
+            echo "3. Open **Budgeter** from your app drawer."
+            echo
+            echo "New versions install over the top of the old one — no need to uninstall first."
+            echo
+            echo "## What's changed"
+            echo
+            if [ -n "$PREV" ]; then
+              git log --no-merges --pretty='- %s' "${PREV}..${GITHUB_REF_NAME}"
+            else
+              git log --no-merges --pretty='- %s'
+            fi
+          } > release-notes.md
+          cat release-notes.md
       - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -160,16 +182,6 @@ jobs:
           else
             gh release create "$TAG" "$ASSET" \
               --title "Budgeter $TAG" \
-              --generate-notes \
               --verify-tag \
-              --notes "$(cat <<'EOF'
-          ## Install on Android
-
-          1. Download the `.apk` file below **on your phone**.
-          2. Tap it in your downloads and allow installing from unknown sources when prompted.
-          3. Open **Budgeter** from your app drawer.
-
-          New versions install over the top of the old one — no need to uninstall first.
-          EOF
-          )"
+              --notes-file release-notes.md
           fi
