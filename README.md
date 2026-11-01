@@ -102,9 +102,8 @@ src/
 
 - Recurring transactions
 - Export to CSV
-- Multiple wallets/accounts
 - Biometric lock
-- Custom categories
+- Per-SIM monthly reports
 
 ## Screenshots
 
