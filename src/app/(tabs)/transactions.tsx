@@ -13,12 +13,14 @@ import {
 } from "react-native";
 import { EmptyState } from "@/components/EmptyState";
 import { Segmented } from "@/components/Segmented";
+import { SimFilter } from "@/components/SimFilter";
 import { TransactionRow } from "@/components/TransactionRow";
 import { useMoney } from "@/hooks/useMoney";
 import { useTheme } from "@/hooks/useTheme";
 import { useStore } from "@/store/useStore";
 import type { IconName, Transaction, TransactionType } from "@/types";
 import { groupByDay } from "@/utils/aggregate";
+import { transactionsForSim } from "@/utils/sims";
 
 type TypeFilter = "all" | TransactionType;
 
@@ -31,7 +33,14 @@ export default function TransactionsScreen() {
 
   const transactions = useStore((s) => s.transactions);
   const categories = useStore((s) => s.categories);
+  const sims = useStore((s) => s.sims);
+  const activeSimId = useStore((s) => s.activeSimId);
   const deleteTransaction = useStore((s) => s.deleteTransaction);
+
+  const scopedTransactions = useMemo(
+    () => transactionsForSim(transactions, activeSimId),
+    [transactions, activeSimId],
+  );
 
   const visibleCategories = useMemo(
     () => (type === "all" ? categories : categories.filter((c) => c.type === type)),
@@ -40,12 +49,14 @@ export default function TransactionsScreen() {
 
   const sections = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = transactions.filter((t) => {
+    const filtered = scopedTransactions.filter((t) => {
       if (type !== "all" && t.type !== type) return false;
       if (categoryId !== "all" && t.categoryId !== categoryId) return false;
       if (q) {
         const cat = categories.find((c) => c.id === t.categoryId);
-        const hay = `${t.note ?? ""} ${cat?.name ?? ""}`.toLowerCase();
+        const sim = sims.find((s) => s.id === t.simId);
+        const hay =
+          `${t.note ?? ""} ${cat?.name ?? ""} ${sim?.label ?? ""} ${sim?.number ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -55,7 +66,7 @@ export default function TransactionsScreen() {
       total: g.total,
       data: g.items,
     }));
-  }, [transactions, categories, query, type, categoryId]);
+  }, [scopedTransactions, categories, sims, query, type, categoryId]);
 
   const add = () => router.push({ pathname: "/transaction/[id]", params: { id: "new" } });
   const edit = (t: Transaction) =>
@@ -86,6 +97,8 @@ export default function TransactionsScreen() {
       />
 
       <View style={styles.controls}>
+        <SimFilter />
+
         <View style={[styles.search, { backgroundColor: colors.inputBg }]}>
           <Ionicons name="search" size={18} color={colors.textFaint} />
           <TextInput

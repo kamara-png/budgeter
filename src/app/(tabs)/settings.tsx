@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useState } from "react";
+import Constants from "expo-constants";
+import { useMemo, useState } from "react";
 import {
   Alert,
   Modal,
@@ -13,13 +14,25 @@ import { AmountInput } from "@/components/AmountInput";
 import { CategoryFormModal } from "@/components/CategoryFormModal";
 import { ProgressBar } from "@/components/ProgressBar";
 import { Segmented } from "@/components/Segmented";
+import { SimChips } from "@/components/SimChips";
+import { SimFormModal } from "@/components/SimFormModal";
 import { CURRENCIES } from "@/constants/currencies";
 import { ACCENT_COLORS } from "@/constants/theme";
 import { useMoney } from "@/hooks/useMoney";
 import { useTheme } from "@/hooks/useTheme";
-import { useStore, type NewCategoryInput } from "@/store/useStore";
-import type { BudgetPeriod, Category, IconName, ThemeMode } from "@/types";
+import {
+  useStore,
+  type NewCategoryInput,
+  type NewSimInput,
+} from "@/store/useStore";
+import type { BudgetPeriod, Category, IconName, Sim, ThemeMode } from "@/types";
 import { budgetRows, monthKey, spentForCategory } from "@/utils/aggregate";
+import {
+  ALL_SIMS,
+  mergeCategoryBudgets,
+  mergeOverallBudgets,
+  simScopeIds,
+} from "@/utils/sims";
 
 const OVERALL_PERIODS: { period: BudgetPeriod; label: string }[] = [
   { period: "daily", label: "Daily" },
@@ -42,6 +55,8 @@ export default function SettingsScreen() {
   const { money } = useMoney();
 
   const categories = useStore((s) => s.categories);
+  const sims = useStore((s) => s.sims);
+  const activeSimId = useStore((s) => s.activeSimId);
   const budgets = useStore((s) => s.budgets);
   const overallBudgets = useStore((s) => s.overallBudgets);
   const transactions = useStore((s) => s.transactions);
@@ -56,8 +71,19 @@ export default function SettingsScreen() {
   const addCategory = useStore((s) => s.addCategory);
   const updateCategory = useStore((s) => s.updateCategory);
   const deleteCategory = useStore((s) => s.deleteCategory);
+  const addSim = useStore((s) => s.addSim);
+  const updateSim = useStore((s) => s.updateSim);
+  const deleteSim = useStore((s) => s.deleteSim);
   const clearAll = useStore((s) => s.clearAll);
 
+  const [selectedBudgetSimId, setBudgetSimId] = useState(() =>
+    activeSimId !== ALL_SIMS && sims.some((s) => s.id === activeSimId)
+      ? activeSimId
+      : (sims[0]?.id ?? ""),
+  );
+  const budgetSimId = sims.some((s) => s.id === selectedBudgetSimId)
+    ? selectedBudgetSimId
+    : (sims[0]?.id ?? "");
   const [editing, setEditing] = useState<Category | null>(null);
   const [editingPeriod, setEditingPeriod] = useState<BudgetPeriod | null>(null);
   const [budgetInput, setBudgetInput] = useState("");
@@ -65,16 +91,38 @@ export default function SettingsScreen() {
   const [categoryEditor, setCategoryEditor] = useState<{
     category: Category | null;
   } | null>(null);
+  const [simEditor, setSimEditor] = useState<{ sim: Sim | null } | null>(null);
   const [showCurrency, setShowCurrency] = useState(false);
+
+  const budgetScopeIds = useMemo(
+    () => simScopeIds(sims, budgetSimId),
+    [sims, budgetSimId],
+  );
+  const budgetTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (t) => t.simId !== undefined && budgetScopeIds.includes(t.simId),
+      ),
+    [transactions, budgetScopeIds],
+  );
+  const budgetSet = useMemo(
+    () => mergeCategoryBudgets(budgets, budgetScopeIds),
+    [budgets, budgetScopeIds],
+  );
+  const budgetOverall = useMemo(
+    () => mergeOverallBudgets(overallBudgets, budgetScopeIds),
+    [overallBudgets, budgetScopeIds],
+  );
 
   const key = monthKey(new Date());
   const expenseCategories = categories.filter((c) => c.type === "expense");
-  const rows = budgetRows(transactions, budgets, categories, key);
+  const rows = budgetRows(budgetTransactions, budgetSet, categories, key);
   const rowByCategory = new Map(rows.map((r) => [r.category.id, r]));
   const activeAccent = ACCENT_COLORS.find((c) => c.value === accent);
+  const budgetSim = sims.find((s) => s.id === budgetSimId);
 
   const openBudget = (category: Category) => {
-    const current = budgets[category.id] ?? 0;
+    const current = budgetSet[category.id] ?? 0;
     setBudgetInput(current > 0 ? current.toString() : "");
     setBudgetError(null);
     setEditing(category);
@@ -82,7 +130,7 @@ export default function SettingsScreen() {
   const closeBudget = () => setEditing(null);
 
   const openOverallBudget = (period: BudgetPeriod) => {
-    const current = overallBudgets[period] ?? 0;
+    const current = budgetOverall[period] ?? 0;
     setBudgetInput(current > 0 ? current.toString() : "");
     setBudgetError(null);
     setEditingPeriod(period);
@@ -90,37 +138,68 @@ export default function SettingsScreen() {
   const closeOverallBudget = () => setEditingPeriod(null);
 
   const saveBudget = () => {
-    if (!editing) return;
+    if (!editing || !budgetSimId) return;
     const value = Math.round(parseFloat(budgetInput));
     if (!Number.isFinite(value) || value <= 0) {
       setBudgetError("Enter an amount greater than zero.");
       return;
     }
-    setBudget(editing.id, value);
+    setBudget(budgetSimId, editing.id, value);
     setEditing(null);
   };
 
   const saveOverallBudget = () => {
-    if (!editingPeriod) return;
+    if (!editingPeriod || !budgetSimId) return;
     const value = Math.round(parseFloat(budgetInput));
     if (!Number.isFinite(value) || value <= 0) {
       setBudgetError("Enter an amount greater than zero.");
       return;
     }
-    setOverallBudget(editingPeriod, value);
+    setOverallBudget(budgetSimId, editingPeriod, value);
     setEditingPeriod(null);
   };
 
   const clearBudget = () => {
-    if (!editing) return;
-    setBudget(editing.id, 0);
+    if (!editing || !budgetSimId) return;
+    setBudget(budgetSimId, editing.id, 0);
     setEditing(null);
   };
 
   const clearOverallBudget = () => {
-    if (!editingPeriod) return;
-    setOverallBudget(editingPeriod, 0);
+    if (!editingPeriod || !budgetSimId) return;
+    setOverallBudget(budgetSimId, editingPeriod, 0);
     setEditingPeriod(null);
+  };
+
+  const submitSim = (input: NewSimInput) => {
+    const editingSim = simEditor?.sim;
+    if (editingSim) updateSim(editingSim.id, input);
+    else addSim(input);
+    setSimEditor(null);
+  };
+
+  const requestDeleteSim = () => {
+    const sim = simEditor?.sim;
+    if (!sim || sims.length <= 1) return;
+    const used = transactions.filter((t) => t.simId === sim.id).length;
+    const fallback = sims.find((s) => s.id !== sim.id);
+    Alert.alert(
+      "Remove SIM card",
+      used > 0
+        ? `Its budgets will be deleted and ${used} transaction${used === 1 ? "" : "s"} will move to ${fallback?.label ?? "another SIM"}.`
+        : "Its budgets will be deleted. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            deleteSim(sim.id);
+            setSimEditor(null);
+          },
+        },
+      ],
+    );
   };
 
   const submitCategory = (input: NewCategoryInput) => {
@@ -168,10 +247,55 @@ export default function SettingsScreen() {
     <ScrollView
       contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}
     >
+      <View style={styles.sectionHeaderRow}>
+        <SectionTitle icon="cellular" title="SIM cards & numbers" />
+        <Pressable
+          onPress={() => setSimEditor({ sim: null })}
+          hitSlop={8}
+          style={styles.addCategory}
+        >
+          <Ionicons name="add" size={16} color={colors.primary} />
+          <Text style={[styles.addCategoryText, { color: colors.primary }]}>Add</Text>
+        </Pressable>
+      </View>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>
+          Keep a separate budget for each phone number. Every transaction is assigned to one SIM.
+        </Text>
+        {sims.map((sim) => (
+          <Pressable
+            key={sim.id}
+            onPress={() => setSimEditor({ sim })}
+            style={[styles.row, { borderBottomColor: colors.border }]}
+          >
+            <View style={[styles.rowIcon, { backgroundColor: `${sim.color}26` }]}>
+              <Ionicons name="cellular" size={18} color={sim.color} />
+            </View>
+            <View style={styles.rowBody}>
+              <Text style={[styles.rowName, { color: colors.text }]}>{sim.label}</Text>
+              <Text style={[styles.rowType, { color: colors.textFaint }]}>
+                {sim.number || "No number set"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+          </Pressable>
+        ))}
+      </View>
+
+      <SectionTitle icon="options" title="Budgets for" />
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <SimChips value={budgetSimId} onChange={setBudgetSimId} />
+        <Text style={[styles.hint, { color: colors.textSecondary, marginTop: 10, marginBottom: 0 }]}>
+          {budgetSim
+            ? `The limits below apply to ${budgetSim.label}. Switch SIMs to set a different budget for each number.`
+            : "Pick a SIM to set its limits."}
+        </Text>
+      </View>
+
       <SectionTitle icon="speedometer" title="Overall budgets" />
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {OVERALL_PERIODS.map((p) => {
-          const limit = overallBudgets[p.period] ?? 0;
+          const limit = budgetOverall[p.period] ?? 0;
           return (
             <Pressable
               key={p.period}
@@ -351,7 +475,9 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <Text style={[styles.version, { color: colors.textFaint }]}>Budgeter v1.0.0</Text>
+      <Text style={[styles.version, { color: colors.textFaint }]}>
+        Budgeter v{Constants.expoConfig?.version ?? "1.0.0"}
+      </Text>
 
       <Modal visible={editing !== null} transparent animationType="none" onRequestClose={closeBudget}>
         <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
@@ -360,8 +486,8 @@ export default function SettingsScreen() {
               {editing ? `${editing.name} budget` : ""}
             </Text>
             <Text style={[styles.modalSpent, { color: colors.textSecondary }]}>
-              Spent this month:{" "}
-              {editing ? money(spentForCategory(transactions, editing.id, key)) : ""}
+              Spent this month{budgetSim ? ` on ${budgetSim.label}` : ""}:{" "}
+              {editing ? money(spentForCategory(budgetTransactions, editing.id, key)) : ""}
             </Text>
             <View style={styles.modalAmount}>
               <AmountInput value={budgetInput} onChangeText={setBudgetInput} autoFocus />
@@ -375,7 +501,7 @@ export default function SettingsScreen() {
                   Cancel
                 </Text>
               </Pressable>
-              {budgets[editing?.id ?? ""] ? (
+              {budgetSet[editing?.id ?? ""] ? (
                 <Pressable onPress={clearBudget} style={styles.modalButton}>
                   <Text style={[styles.modalButtonText, { color: colors.expense }]}>Remove</Text>
                 </Pressable>
@@ -403,7 +529,7 @@ export default function SettingsScreen() {
               {budgetPeriodLabel} budget
             </Text>
             <Text style={[styles.modalSpent, { color: colors.textSecondary }]}>
-              Set an overall spending limit for this period.
+              Set an overall spending limit{budgetSim ? ` for ${budgetSim.label}` : ""} for this period.
             </Text>
             <View style={styles.modalAmount}>
               <AmountInput value={budgetInput} onChangeText={setBudgetInput} autoFocus />
@@ -417,7 +543,7 @@ export default function SettingsScreen() {
                   Cancel
                 </Text>
               </Pressable>
-              {editingPeriod && (overallBudgets[editingPeriod] ?? 0) > 0 ? (
+              {editingPeriod && (budgetOverall[editingPeriod] ?? 0) > 0 ? (
                 <Pressable onPress={clearOverallBudget} style={styles.modalButton}>
                   <Text style={[styles.modalButtonText, { color: colors.expense }]}>Remove</Text>
                 </Pressable>
@@ -482,6 +608,18 @@ export default function SettingsScreen() {
           onSubmit={submitCategory}
           onDelete={categoryEditor.category ? requestDeleteCategory : undefined}
           onClose={() => setCategoryEditor(null)}
+        />
+      ) : null}
+
+      {simEditor ? (
+        <SimFormModal
+          key={simEditor.sim?.id ?? "new"}
+          initial={simEditor.sim}
+          onSubmit={submitSim}
+          onDelete={
+            simEditor.sim && sims.length > 1 ? requestDeleteSim : undefined
+          }
+          onClose={() => setSimEditor(null)}
         />
       ) : null}
     </ScrollView>

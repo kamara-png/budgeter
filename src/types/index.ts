@@ -15,11 +15,19 @@ export interface Category {
   type: TransactionType;
 }
 
+export interface Sim {
+  id: string;
+  label: string;
+  number: string;
+  color: string;
+}
+
 export interface Transaction {
   id: string;
   type: TransactionType;
   amount: number;
   categoryId: string;
+  simId?: string;
   date: string; // yyyy-MM-dd
   note?: string;
   createdAt: string;

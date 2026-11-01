@@ -16,6 +16,7 @@ import {
 import { BarChart } from "react-native-gifted-charts";
 import { CategoryRing } from "@/components/CategoryRing";
 import { EmptyState } from "@/components/EmptyState";
+import { SimFilter } from "@/components/SimFilter";
 import { useMoney } from "@/hooks/useMoney";
 import { useTheme } from "@/hooks/useTheme";
 import { useStore } from "@/store/useStore";
@@ -26,6 +27,7 @@ import {
   totalsInMonth,
 } from "@/utils/aggregate";
 import { formatPercent } from "@/utils/format";
+import { transactionsForSim } from "@/utils/sims";
 
 export default function StatsScreen() {
   const { colors } = useTheme();
@@ -34,17 +36,26 @@ export default function StatsScreen() {
 
   const transactions = useStore((s) => s.transactions);
   const categories = useStore((s) => s.categories);
+  const activeSimId = useStore((s) => s.activeSimId);
+
+  const scopedTransactions = useMemo(
+    () => transactionsForSim(transactions, activeSimId),
+    [transactions, activeSimId],
+  );
 
   const selectedKey = useMemo(() => monthKey(month), [month]);
   const totals = useMemo(
-    () => totalsInMonth(transactions, selectedKey),
-    [transactions, selectedKey],
+    () => totalsInMonth(scopedTransactions, selectedKey),
+    [scopedTransactions, selectedKey],
   );
   const byCategory = useMemo(
-    () => spendingByCategory(transactions, categories, selectedKey),
-    [transactions, categories, selectedKey],
+    () => spendingByCategory(scopedTransactions, categories, selectedKey),
+    [scopedTransactions, categories, selectedKey],
   );
-  const barData = useMemo(() => monthlySeries(transactions, 6), [transactions]);
+  const barData = useMemo(
+    () => monthlySeries(scopedTransactions, 6),
+    [scopedTransactions],
+  );
 
   const currentMonth = startOfMonth(new Date());
   const canGoNext = isBefore(addMonths(month, 1), addMonths(currentMonth, 1));
@@ -66,6 +77,8 @@ export default function StatsScreen() {
     <ScrollView
       contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}
     >
+      <SimFilter />
+
       <View style={styles.monthNav}>
         <Pressable
           onPress={() => nav(-1)}

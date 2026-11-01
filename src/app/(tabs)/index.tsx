@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/EmptyState";
 import { Fab } from "@/components/Fab";
 import { ProgressBar } from "@/components/ProgressBar";
+import { SimFilter } from "@/components/SimFilter";
 import { TransactionRow } from "@/components/TransactionRow";
 import { useMoney } from "@/hooks/useMoney";
 import { useTheme } from "@/hooks/useTheme";
@@ -25,6 +26,13 @@ import {
   totalsInMonth,
 } from "@/utils/aggregate";
 import { formatPercent } from "@/utils/format";
+import {
+  ALL_SIMS,
+  mergeCategoryBudgets,
+  mergeOverallBudgets,
+  simScopeIds,
+  transactionsForSim,
+} from "@/utils/sims";
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -33,21 +41,50 @@ export default function HomeScreen() {
 
   const transactions = useStore((s) => s.transactions);
   const categories = useStore((s) => s.categories);
+  const sims = useStore((s) => s.sims);
+  const activeSimId = useStore((s) => s.activeSimId);
   const budgets = useStore((s) => s.budgets);
   const overallBudgets = useStore((s) => s.overallBudgets);
   const deleteTransaction = useStore((s) => s.deleteTransaction);
 
+  const scopeIds = useMemo(() => simScopeIds(sims, activeSimId), [sims, activeSimId]);
+  const scopedTransactions = useMemo(
+    () => transactionsForSim(transactions, activeSimId),
+    [transactions, activeSimId],
+  );
+  const scopedBudgets = useMemo(
+    () => mergeCategoryBudgets(budgets, scopeIds),
+    [budgets, scopeIds],
+  );
+  const scopedOverallBudgets = useMemo(
+    () => mergeOverallBudgets(overallBudgets, scopeIds),
+    [overallBudgets, scopeIds],
+  );
+  const activeSim = useMemo(
+    () =>
+      activeSimId === ALL_SIMS
+        ? undefined
+        : sims.find((s) => s.id === activeSimId),
+    [sims, activeSimId],
+  );
+
   const key = useMemo(() => monthKey(new Date()), []);
   const monthName = format(new Date(), "MMMM");
-  const totals = useMemo(() => totalsInMonth(transactions, key), [transactions, key]);
-  const rows = useMemo(
-    () => budgetRows(transactions, budgets, categories, key),
-    [transactions, budgets, categories, key],
+  const totals = useMemo(
+    () => totalsInMonth(scopedTransactions, key),
+    [scopedTransactions, key],
   );
-  const recent = useMemo(() => transactions.slice(0, 6), [transactions]);
+  const rows = useMemo(
+    () => budgetRows(scopedTransactions, scopedBudgets, categories, key),
+    [scopedTransactions, scopedBudgets, categories, key],
+  );
+  const recent = useMemo(
+    () => scopedTransactions.slice(0, 6),
+    [scopedTransactions],
+  );
   const overallRows = useMemo(
-    () => overallBudgetRows(transactions, overallBudgets),
-    [transactions, overallBudgets],
+    () => overallBudgetRows(scopedTransactions, scopedOverallBudgets),
+    [scopedTransactions, scopedOverallBudgets],
   );
 
   const totalBudget = useMemo(() => rows.reduce((sum, r) => sum + r.limit, 0), [rows]);
@@ -73,9 +110,11 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
       >
+        <SimFilter />
+
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.spentLabel, { color: colors.textSecondary }]}>
-            Spent in {monthName}
+            {activeSim ? `Spent in ${monthName} · ${activeSim.label}` : `Spent in ${monthName}`}
           </Text>
           <Text style={[styles.spentAmount, { color: colors.text }]}>
             {money(totals.spent)}
@@ -179,14 +218,14 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent activity</Text>
-            {transactions.length > 0 ? (
+            {scopedTransactions.length > 0 ? (
               <Pressable onPress={seeAll} hitSlop={8}>
                 <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
               </Pressable>
             ) : null}
           </View>
 
-          {transactions.length === 0 ? (
+          {scopedTransactions.length === 0 ? (
             <View
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
             >

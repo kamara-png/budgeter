@@ -19,11 +19,13 @@ import { CategoryPicker } from "@/components/CategoryPicker";
 import { DatePickerModal } from "@/components/DatePickerModal";
 import { EmptyState } from "@/components/EmptyState";
 import { Segmented } from "@/components/Segmented";
+import { SimChips } from "@/components/SimChips";
 import { useTheme } from "@/hooks/useTheme";
 import { useStore } from "@/store/useStore";
 import type { NewTransactionInput } from "@/store/useStore";
 import type { Transaction, TransactionType } from "@/types";
 import { fromISODate, roundAmount, toISODate } from "@/utils/format";
+import { ALL_SIMS } from "@/utils/sims";
 
 export default function TransactionScreen() {
   const { id, amount } = useLocalSearchParams<{ id: string; amount?: string }>();
@@ -62,6 +64,8 @@ interface FormProps {
 function TransactionForm({ isNew, existing, initialAmount }: FormProps) {
   const { colors } = useTheme();
   const categories = useStore((s) => s.categories);
+  const sims = useStore((s) => s.sims);
+  const activeSimId = useStore((s) => s.activeSimId);
   const addTransaction = useStore((s) => s.addTransaction);
   const updateTransaction = useStore((s) => s.updateTransaction);
   const deleteTransaction = useStore((s) => s.deleteTransaction);
@@ -76,6 +80,13 @@ function TransactionForm({ isNew, existing, initialAmount }: FormProps) {
   });
   const [type, setType] = useState<TransactionType>(existing?.type ?? "expense");
   const [categoryId, setCategoryId] = useState(existing?.categoryId ?? "");
+  const [simId, setSimId] = useState(() => {
+    if (existing?.simId) return existing.simId;
+    if (activeSimId !== ALL_SIMS && sims.some((s) => s.id === activeSimId)) {
+      return activeSimId;
+    }
+    return sims[0]?.id ?? "";
+  });
   const [date, setDate] = useState(() =>
     existing ? fromISODate(existing.date) : new Date(),
   );
@@ -102,10 +113,15 @@ function TransactionForm({ isNew, existing, initialAmount }: FormProps) {
       setError("Pick a category.");
       return;
     }
+    if (!simId) {
+      setError("Pick a SIM card.");
+      return;
+    }
     const input: NewTransactionInput = {
       type,
       amount: value,
       categoryId,
+      simId,
       date: toISODate(date),
       note: note.trim() ? note.trim() : undefined,
     };
@@ -179,6 +195,15 @@ function TransactionForm({ isNew, existing, initialAmount }: FormProps) {
               activeColor={type === "expense" ? colors.expense : colors.income}
             />
           </View>
+
+          {sims.length > 1 ? (
+            <View
+              style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <Text style={[styles.label, { color: colors.textSecondary }]}>SIM card</Text>
+              <SimChips value={simId} onChange={setSimId} />
+            </View>
+          ) : null}
 
           <View
             style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}

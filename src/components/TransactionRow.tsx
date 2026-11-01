@@ -18,6 +18,8 @@ function TransactionRowBase({ item, onPress, onLongPress }: Props) {
   const category = useStore((s) =>
     s.categories.find((c) => c.id === item.categoryId),
   );
+  const sim = useStore((s) => s.sims.find((x) => x.id === item.simId));
+  const showSim = useStore((s) => s.sims.length > 1);
   const icon = category?.icon ?? "help-circle";
   const color = category?.color ?? colors.textFaint;
   const isExpense = item.type === "expense";
@@ -39,13 +41,28 @@ function TransactionRowBase({ item, onPress, onLongPress }: Props) {
         >
           {category?.name ?? "Other"}
         </Text>
-        {item.note ? (
-          <Text
-            numberOfLines={1}
-            style={[styles.note, { color: colors.textSecondary }]}
-          >
-            {item.note}
-          </Text>
+        {item.note || (showSim && sim) ? (
+          <View style={styles.meta}>
+            {showSim && sim ? (
+              <View style={[styles.simTag, { backgroundColor: `${sim.color}1A` }]}>
+                <View style={[styles.simDot, { backgroundColor: sim.color }]} />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.simText, { color: sim.color }]}
+                >
+                  {sim.label}
+                </Text>
+              </View>
+            ) : null}
+            {item.note ? (
+              <Text
+                numberOfLines={1}
+                style={[styles.note, { color: colors.textSecondary }]}
+              >
+                {item.note}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
       </View>
       <Text
@@ -87,8 +104,32 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   note: {
+    flexShrink: 1,
     fontSize: 13,
+  },
+  meta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     marginTop: 2,
+  },
+  simTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  simDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  simText: {
+    maxWidth: 80,
+    fontSize: 11,
+    fontWeight: "700",
   },
   amount: {
     fontSize: 15,

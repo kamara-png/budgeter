@@ -9,6 +9,7 @@ Built as a portfolio project to demonstrate: Expo/React Native development, file
 - **Track transactions** — add, edit, and delete expenses and income with amount, category, date, and note.
 - **Dashboard** — this month's spending, income, and net with leftover budget at a glance.
 - **Category budgets** — set a monthly limit per category and watch live progress bars (warning turns red when you go over).
+- **Multiple SIM cards** — keep separate transactions and budgets for each phone number, with an All SIMs view that adds them together.
 - **Search & filters** — filter by day, search notes/categories, and narrow by income vs. expense.
 - **Stats & charts** — donut chart of spending by category and a 6-month bar chart, browsable by month.
 - **Dark mode** — Light, Dark, or System theme.
