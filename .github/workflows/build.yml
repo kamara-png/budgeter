@@ -130,6 +130,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: Download Android artifacts
         uses: actions/download-artifact@v8
         with:
