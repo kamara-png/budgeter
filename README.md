@@ -13,6 +13,7 @@ Built as a portfolio project to demonstrate: Expo/React Native development, file
 - **Search & filters** — filter by day, search notes/categories, and narrow by income vs. expense.
 - **Stats & charts** — donut chart of spending by category and a 6-month bar chart, browsable by month.
 - **Dark mode** — Light, Dark, or System theme.
+- **Over-the-air updates** — publish JavaScript changes from `main` and install them in-app, with a changelog in Settings.
 - **Local only** — everything persists on-device behind `AsyncStorage` (via Zustand `persist`); no accounts, no server.
 
 ## Tech stack
@@ -54,6 +55,20 @@ git push origin v1.0.1
 ```
 
 The tag name becomes the release name and the app version baked into the APK. You can also run the workflow manually from **Actions → Build & Release → Run workflow**; manual runs only upload the APK as a workflow artifact and do not create a release.
+
+### Signing and size
+
+Every APK is signed with the keystore committed in `android-signing/` (wired in by `plugins/withReleaseSigning.js`), so new versions install over old ones instead of failing with a signature mismatch. Before uploading, CI runs `apksigner verify` and fails the build if the APK is unsigned, signed by a different key, or larger than **50 MiB**.
+
+Builds ship `arm64-v8a` and `armeabi-v7a` only, with R8 minification, resource shrinking, and bundle compression enabled (`expo-build-properties` in `app.json`). The keystore is public by design — see `android-signing/README.md` for the trade-off and why it must be backed up.
+
+### Over-the-air updates
+
+Pushing to `main` publishes a JavaScript/assets-only update to the `production` channel (`.github/workflows/update.yml`) — no new APK, no reinstall. Installed v1.2.0+ builds pick it up on the next launch, or on demand from **Settings → Updates → Check for updates**.
+
+- Bump `"version"` in `app.json` before tagging: `runtimeVersion` follows the app version, and the build fails if the tag and `app.json` disagree.
+- Add an entry to `src/constants/changelog.json` for every release. The pre-download sheet and the post-update "what's new" dialog read from it.
+- The workflow needs an `EXPO_TOKEN` repository secret ([create one](https://expo.dev/settings/access-tokens)).
 
 ## Getting started
 

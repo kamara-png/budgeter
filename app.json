@@ -2,18 +2,30 @@
   "expo": {
     "name": "Budgeter",
     "slug": "budgeter",
-    "version": "1.1.0",
+    "version": "1.2.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "budgeter",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#F6F7FB",
+    "updates": {
+      "url": "https://u.expo.dev/ef5d807d-2f80-4066-8272-b9e80b25682d",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      },
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.kamarack.budgeter"
     },
     "android": {
       "package": "com.kamarack.budgeter",
+      "versionCode": 10200,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -36,7 +48,19 @@
           "resizeMode": "contain",
           "backgroundColor": "#F6F7FB"
         }
-      ]
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": ["arm64-v8a", "armeabi-v7a"],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enableBundleCompression": true
+          }
+        }
+      ],
+      "./plugins/withReleaseSigning"
     ],
     "experiments": {
       "typedRoutes": true

@@ -11,7 +11,7 @@ interface Props {
 export function ProgressBar({ value, limit, color, height = 8 }: Props) {
   const { colors } = useTheme();
   const over = limit > 0 && value > limit;
-  const percent = limit > 0 ? Math.min(100, (value / limit) * 100) : 0;
+  const percent = limit > 0 ? Math.min(100, Math.max(0, (value / limit) * 100)) : 0;
   const fillColor = over ? colors.expense : color ?? colors.primary;
 
   return (

@@ -13,9 +13,11 @@ import {
 import { AmountInput } from "@/components/AmountInput";
 import { CategoryFormModal } from "@/components/CategoryFormModal";
 import { ProgressBar } from "@/components/ProgressBar";
+import { SectionTitle } from "@/components/SectionTitle";
 import { Segmented } from "@/components/Segmented";
 import { SimChips } from "@/components/SimChips";
 import { SimFormModal } from "@/components/SimFormModal";
+import { UpdatesSection } from "@/components/updates/UpdatesSection";
 import { CURRENCIES } from "@/constants/currencies";
 import { ACCENT_COLORS } from "@/constants/theme";
 import { useMoney } from "@/hooks/useMoney";
@@ -25,7 +27,7 @@ import {
   type NewCategoryInput,
   type NewSimInput,
 } from "@/store/useStore";
-import type { BudgetPeriod, Category, IconName, Sim, ThemeMode } from "@/types";
+import type { BudgetPeriod, Category, Sim, ThemeMode } from "@/types";
 import { budgetRows, monthKey, spentForCategory } from "@/utils/aggregate";
 import {
   ALL_SIMS,
@@ -39,16 +41,6 @@ const OVERALL_PERIODS: { period: BudgetPeriod; label: string }[] = [
   { period: "weekly", label: "Weekly" },
   { period: "monthly", label: "Monthly" },
 ];
-
-function SectionTitle({ icon, title }: { icon: IconName; title: string }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.sectionHeader}>
-      <Ionicons name={icon} size={15} color={colors.primary} />
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{title}</Text>
-    </View>
-  );
-}
 
 export default function SettingsScreen() {
   const { colors } = useTheme();
@@ -475,6 +467,8 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      <UpdatesSection />
+
       <Text style={[styles.version, { color: colors.textFaint }]}>
         Budgeter v{Constants.expoConfig?.version ?? "1.0.0"}
       </Text>
@@ -631,18 +625,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     paddingBottom: 40,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
   },
   sectionHeaderRow: {
     flexDirection: "row",

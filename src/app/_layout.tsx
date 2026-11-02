@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { WhatsNewModal } from "@/components/updates/WhatsNewModal";
 import { useTheme } from "@/hooks/useTheme";
 
 export default function RootLayout() {
@@ -43,6 +44,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+      <WhatsNewModal />
     </ThemeProvider>
   );
 }
