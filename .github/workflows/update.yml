@@ -14,8 +14,13 @@ permissions:
   contents: read
 
 jobs:
+  checks:
+    name: CI checks
+    uses: ./.github/workflows/ci.yml
+
   publish:
     name: Publish EAS Update
+    needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
