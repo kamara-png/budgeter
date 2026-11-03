@@ -27,7 +27,9 @@ jobs:
     name: Android build (APK)
     needs: checks
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A cold build (no Gradle cache) can exceed an hour on CI; the cache is only
+    # saved on success, so this must be high enough for the first run to finish.
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v5
