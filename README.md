@@ -13,7 +13,7 @@ Built as a portfolio project to demonstrate: Expo/React Native development, file
 - **Search & filters** — filter by day, search notes/categories, and narrow by income vs. expense.
 - **Stats & charts** — donut chart of spending by category and a 6-month bar chart, browsable by month.
 - **Dark mode** — Light, Dark, or System theme.
-- **Over-the-air updates** — publish JavaScript changes from `main` and install them in-app, with a changelog in Settings.
+- **Updates inside the app** — JavaScript fixes arrive over the air; new versions download and install from Settings → Updates (checked once a day on launch), with the changelog shown first.
 - **Local only** — everything persists on-device behind `AsyncStorage` (via Zustand `persist`); no accounts, no server.
 
 ## Tech stack
@@ -40,21 +40,16 @@ Updates install over the top of the previous version. iOS builds are not publish
 
 ## Releasing
 
-Releases are built and published by GitHub Actions (`.github/workflows/build.yml`). Pushing a `v*` tag runs lint/typecheck/doctor, builds a signed Android APK, and attaches it to a new GitHub Release:
+Releases are built and published by GitHub Actions. The short version (full checklist in [`RELEASING.md`](RELEASING.md)):
 
 ```bash
-npm version patch          # bumps version, commits, creates tag (use minor/major as needed)
-git push --follow-tags     # pushes the commit and the tag
+node scripts/draft-release-notes.mjs 1.3.1   # drafts src/constants/changelog.json from commits
+# edit the entry: group, dedupe, write it for users
+node scripts/release.mjs 1.3.1               # checks, bumps versions, commits, creates annotated tag v1.3.1
+git push origin main && git push origin v1.3.1
 ```
 
-Or create the tag by hand:
-
-```bash
-git tag v1.0.1
-git push origin v1.0.1
-```
-
-The tag name becomes the release name and the app version baked into the APK. You can also run the workflow manually from **Actions → Build & Release → Run workflow**; manual runs only upload the APK as a workflow artifact and do not create a release.
+Pushing the `v*` tag runs the CI checks, builds a signed Android APK, and publishes a GitHub Release whose notes are the changelog entry for that version, verbatim. The build fails if the entry is missing, so the GitHub Release and the in-app "What's new" always match. `workflow_dispatch` runs only upload the APK as a workflow artifact.
 
 ### Signing and size
 
@@ -62,13 +57,21 @@ Every APK is signed with the keystore committed in `android-signing/` (wired in 
 
 Builds ship `arm64-v8a` and `armeabi-v7a` only, with R8 minification, resource shrinking, and bundle compression enabled (`expo-build-properties` in `app.json`). The keystore is public by design — see `android-signing/README.md` for the trade-off and why it must be backed up.
 
-### Over-the-air updates
+### How installed apps get updates
 
-Pushing to `main` publishes a JavaScript/assets-only update to the `production` channel (`.github/workflows/update.yml`) — no new APK, no reinstall. Installed v1.2.0+ builds pick it up on the next launch, or on demand from **Settings → Updates → Check for updates**.
+There are two channels, and they cover different things:
 
-- Bump `"version"` in `app.json` before tagging: `runtimeVersion` follows the app version, and the build fails if the tag and `app.json` disagree.
-- Add an entry to `src/constants/changelog.json` for every release. The pre-download sheet and the post-update "what's new" dialog read from it.
-- The workflow needs an `EXPO_TOKEN` repository secret ([create one](https://expo.dev/settings/access-tokens)).
+| Channel | Carries | Trigger | Installed app |
+|---|---|---|---|
+| **Over-the-air** (EAS Update) | JavaScript and assets only | push to `main`, after CI passes (`update.yml`) | downloads on launch, restart to apply |
+| **New APK** (GitHub Releases) | anything, including native changes | push a `v*` tag (`build.yml`) | checks once a day on launch (and from **Settings → Updates**), downloads the APK, opens Android's installer |
+
+`runtimeVersion` follows the app version, so an OTA update only reaches builds with the same version. **If a change adds or upgrades a native module, bump the version in the same change** — otherwise the OTA update lands on older builds that don't have the module and crashes them. Every release is a new runtime, which is why new versions arrive as an APK.
+
+- The build fails if the tag and `app.json` disagree.
+- Every release needs an entry in `src/constants/changelog.json`; the in-app sheets and the GitHub Release both read from it.
+- The OTA workflow needs an `EXPO_TOKEN` repository secret ([create one](https://expo.dev/settings/access-tokens)).
+- The first install of a build with the in-app installer asks you to allow "Install unknown apps" for Budgeter once. That is Android's rule for apps installed outside the Play Store.
 
 ## Getting started
 

@@ -12,8 +12,10 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SectionTitle } from "@/components/SectionTitle";
+import { AppUpdateCard } from "@/components/updates/AppUpdateCard.native";
 import { UpdateSheet } from "@/components/updates/UpdateSheet";
 import { useTheme } from "@/hooks/useTheme";
+import { useAppUpdate } from "@/store/useAppUpdate";
 import {
   bundledChangelog,
   entryClosestTo,
@@ -66,6 +68,9 @@ export function UpdatesSection() {
   const [sheet, setSheet] = useState<SheetState>({ open: false });
   const [error, setError] = useState<string | null>(null);
   const [localCheckedAt, setLocalCheckedAt] = useState<Date | null>(null);
+  const appPhase = useAppUpdate((state) => state.phase);
+  // Once a release is found, the app-update card reports its own errors.
+  const appError = useAppUpdate((state) => (state.release ? null : state.error));
 
   const enabled = Updates.isEnabled;
   const version = Constants.expoConfig?.version ?? "";
@@ -73,14 +78,15 @@ export function UpdatesSection() {
 
   const pending = enabled && isUpdatePending;
   const available = enabled && isUpdateAvailable && !pending;
-  const checking = enabled && isChecking;
+  const checking = enabled && (isChecking || appPhase === "checking");
   const downloading = enabled && isDownloading;
   const progress = Math.min(
     100,
     Math.max(0, Math.round((downloadProgress ?? 0) * 100)),
   );
   const checkedAt = lastCheckForUpdateTimeSinceRestart ?? localCheckedAt;
-  const message = error ?? checkError?.message ?? downloadError?.message ?? null;
+  const message =
+    error ?? checkError?.message ?? downloadError?.message ?? appError ?? null;
 
   const openSheet = useCallback(async (createdAt: Date | null) => {
     setSheet({ open: true, loading: true, entry: null });
@@ -99,6 +105,8 @@ export function UpdatesSection() {
 
   const checkForUpdates = useCallback(async () => {
     setError(null);
+    // A new APK release (native changes) is checked alongside the OTA bundle.
+    void useAppUpdate.getState().check({ force: true });
     try {
       const result = await Updates.checkForUpdateAsync();
       setLocalCheckedAt(new Date());
@@ -248,6 +256,8 @@ export function UpdatesSection() {
           </Text>
         ) : null}
       </View>
+
+      <AppUpdateCard />
 
       <UpdateSheet
         visible={sheet.open}
