@@ -1,12 +1,15 @@
 [
   {
-    "version": "1.3.0",
-    "publishedAt": "2026-11-03T10:00:00Z",
+    "version": "1.3.1",
+    "publishedAt": "2026-11-04T10:00:00Z",
     "added": [
       "Update Budgeter from inside the app: new versions download and install over your current one",
       "Budgeter checks for a new version once a day when you open it"
     ],
-    "changed": ["Release notes on GitHub now come from the in-app changelog"]
+    "changed": [
+      "Release notes on GitHub now come from the in-app changelog",
+      "APK builds are stable and finish reliably on CI again"
+    ]
   },
   {
     "version": "1.2.0",
