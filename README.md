@@ -2,7 +2,7 @@
 
 # 💸 Budgeter
 
-**Know where your money goes — before it's gone.**
+**Know where your money goes before it's gone.**
 
 A clean, no-nonsense budgeting app that helps you track spending, set limits, and actually stick to them.
 
@@ -16,17 +16,6 @@ A clean, no-nonsense budgeting app that helps you track spending, set limits, an
 
 ---
 
-## 👀 Preview
-
-<!-- Drop 2–3 screenshots or a short GIF here. This is the single biggest upgrade to any README. -->
-<div align="center">
-
-| Dashboard | Add Expense | Reports |
-|:---:|:---:|:---:|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Add Expense](docs/screenshots/add-expense.png) | ![Reports](docs/screenshots/reports.png) |
-
-</div>
-
 ---
 
 ## ✨ Features
@@ -38,7 +27,6 @@ A clean, no-nonsense budgeting app that helps you track spending, set limits, an
 - 🔄 **Auto-updates**: new versions arrive on their own, so you're always current
 - 🔒 **Your data, your device**: [describe where data is stored]
 
-> Edit this list to match what Budgeter really does today. Only keep what's true.
 
 ---
 
@@ -73,8 +61,6 @@ npm install
 # 3. Start the app
 npm start
 ```
-
-> Swap in the real commands for your setup.
 
 **Requirements:** [e.g. Node.js 18+]
 
@@ -133,9 +119,9 @@ Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
 <div align="center">
 
-**Made with ☕ and way too many late nights by [Calvin Kamara](https://kamara-png.github.io/Calvin-Kamara)**
+**Made by [Calvin Kamara](https://kamara-png.github.io/Calvin-Kamara)**
 
-[Portfolio](https://kamara-png.github.io/Calvin-Kamara) · [Instagram @ckay.png](https://instagram.com/ckay.png)
+My [Portfolio](https://kamara-png.github.io/Calvin-Kamara-Portfolio/)
 
 ⭐ If Budgeter helps you save a few shillings, drop a star!
 
