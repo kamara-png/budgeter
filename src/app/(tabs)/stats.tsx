@@ -13,9 +13,9 @@ import {
   Text,
   View,
 } from "react-native";
-import { BarChart } from "react-native-gifted-charts";
 import { CategoryRing } from "@/components/CategoryRing";
 import { EmptyState } from "@/components/EmptyState";
+import { MonthBars } from "@/components/MonthBars";
 import { SimFilter } from "@/components/SimFilter";
 import { useMoney } from "@/hooks/useMoney";
 import { useTheme } from "@/hooks/useTheme";
@@ -53,7 +53,11 @@ export default function StatsScreen() {
     [scopedTransactions, categories, selectedKey],
   );
   const barData = useMemo(
-    () => monthlySeries(scopedTransactions, 6),
+    () =>
+      monthlySeries(scopedTransactions, 6).map((entry, index, list) => ({
+        ...entry,
+        highlighted: index === list.length - 1,
+      })),
     [scopedTransactions],
   );
 
@@ -61,17 +65,28 @@ export default function StatsScreen() {
   const canGoNext = isBefore(addMonths(month, 1), addMonths(currentMonth, 1));
 
   const nav = (delta: number) => setMonth((m) => addMonths(m, delta));
-  const hasSpending = byCategory.length > 0;
+  // Only the biggest slices get their own color; everything else merges into
+  // one "Other" wedge so the ring stays readable.
+  const slices = useMemo(() => {
+    const MAX_SLICES = 6;
+    const main = byCategory.slice(0, MAX_SLICES).map((c) => ({
+      value: c.amount,
+      color: c.category.color,
+      label: c.category.name,
+    }));
+    const rest = byCategory.slice(MAX_SLICES);
+    if (rest.length > 0) {
+      const extra = rest.reduce((sum, c) => sum + c.amount, 0);
+      main.push({
+        value: extra,
+        color: colors.border,
+        label: `Other (${rest.length})`,
+      });
+    }
+    return main;
+  }, [byCategory, colors.border]);
+  const hasSpending = slices.length > 0;
   const hasBarData = barData.some((b) => b.value > 0);
-
-  const pieData = useMemo(
-    () =>
-      byCategory.map((c) => ({
-        value: c.amount,
-        color: c.category.color,
-      })),
-    [byCategory],
-  );
 
   return (
     <ScrollView
@@ -135,29 +150,37 @@ export default function StatsScreen() {
           <>
             <View style={styles.ringWrap}>
               <CategoryRing
-                data={pieData}
+                data={slices}
                 size={210}
                 strokeWidth={22}
                 trackColor={colors.inputBg}
               />
+              <View style={styles.ringCenter} pointerEvents="none">
+                <Text style={[styles.ringCenterLabel, { color: colors.textSecondary }]}>
+                  Spent
+                </Text>
+                <Text numberOfLines={1} style={[styles.ringCenterAmount, { color: colors.text }]}>
+                  {money(totals.spent)}
+                </Text>
+              </View>
             </View>
             <View style={styles.legend}>
-              {byCategory.map((c) => (
-                <View key={c.category.id} style={styles.legendRow}>
+              {slices.map((slice) => (
+                <View key={slice.label} style={styles.legendRow}>
                   <View
-                    style={[styles.legendDot, { backgroundColor: c.category.color }]}
+                    style={[styles.legendDot, { backgroundColor: slice.color }]}
                   />
                   <Text
                     numberOfLines={1}
                     style={[styles.legendName, { color: colors.text }]}
                   >
-                    {c.category.name}
+                    {slice.label}
                   </Text>
                   <Text style={[styles.legendAmount, { color: colors.text }]}>
-                    {money(c.amount)}
+                    {money(slice.value)}
                   </Text>
                   <Text style={[styles.legendPct, { color: colors.textFaint }]}>
-                    {formatPercent(c.amount / totals.spent)}
+                    {formatPercent(slice.value / totals.spent)}
                   </Text>
                 </View>
               ))}
@@ -175,21 +198,7 @@ export default function StatsScreen() {
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>Last 6 months</Text>
         {hasBarData ? (
-          <BarChart
-            data={barData}
-            frontColor={colors.primary}
-            barWidth={22}
-            barBorderRadius={6}
-            spacing={28}
-            noOfSections={4}
-            yAxisThickness={0}
-            xAxisThickness={1}
-            xAxisColor={colors.border}
-            rulesColor={colors.border}
-            yAxisTextStyle={{ color: colors.textFaint, fontSize: 10 }}
-            xAxisLabelTextStyle={[styles.axisLabel, { color: colors.textSecondary }]}
-            hideYAxisText={false}
-          />
+          <MonthBars data={barData} height={150} />
         ) : (
           <EmptyState
             icon="bar-chart"
@@ -267,6 +276,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
   },
+  ringCenter: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 8,
+    bottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  ringCenterLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  ringCenterAmount: {
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 2,
+  },
   legend: {
     marginTop: 18,
     gap: 10,
@@ -296,8 +324,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     width: 44,
     textAlign: "right",
-  },
-  axisLabel: {
-    fontSize: 11,
   },
 });

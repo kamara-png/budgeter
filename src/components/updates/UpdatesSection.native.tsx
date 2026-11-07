@@ -36,9 +36,17 @@ function manifestCreatedAt(manifest: unknown): Date | null {
 }
 
 function describeError(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === "string" && error) return error;
-  return "Something went wrong while contacting the update server.";
+  const raw =
+    error instanceof Error && error.message
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  // Expo's own transport error is cryptic; say what actually went wrong.
+  if (/failed to download remote update/i.test(raw)) {
+    return "Couldn't download the update. Check your connection and try again.";
+  }
+  return raw || "Something went wrong while contacting the update server.";
 }
 
 function relativeTime(date: Date): string {
@@ -85,8 +93,22 @@ export function UpdatesSection() {
     Math.max(0, Math.round((downloadProgress ?? 0) * 100)),
   );
   const checkedAt = lastCheckForUpdateTimeSinceRestart ?? localCheckedAt;
-  const message =
-    error ?? checkError?.message ?? downloadError?.message ?? appError ?? null;
+
+  // The hook keeps the errors from the automatic launch check forever, so a
+  // failed attempt hours ago would otherwise read like the app is broken.
+  // Only surface them in the state they happened in; a manual check that
+  // finds nothing ends in the "up to date" message below.
+  const otaError = downloading
+    ? null
+    : (available || pending) && downloadError
+      ? describeError(downloadError)
+      : null;
+  const localMessage =
+    error ??
+    otaError ??
+    (checking && checkError ? describeError(checkError) : null) ??
+    appError ??
+    null;
 
   const openSheet = useCallback(async (createdAt: Date | null) => {
     setSheet({ open: true, loading: true, entry: null });
@@ -114,7 +136,12 @@ export function UpdatesSection() {
         await openSheet(manifestCreatedAt(result.manifest));
       }
     } catch (e) {
-      setError(describeError(e));
+      // Expo raises raw transport errors ("Failed to download remote update")
+      // when the update server can't be reached. No reachable update usually
+      // just means nothing new, so report up to date instead of alarming the
+      // user with network noise. The APK release check above still surfaces a
+      // newer build it finds on GitHub.
+      console.warn("OTA update check failed:", e);
       setLocalCheckedAt(new Date());
     }
   }, [openSheet]);
@@ -147,15 +174,14 @@ export function UpdatesSection() {
     );
   }, []);
 
+  const downloadFailed = available && otaError !== null;
+
   let statusText = "Check whether a newer version of the app is available.";
   let statusColor = colors.textSecondary;
 
   if (!enabled) {
     statusText =
       "Over-the-air updates only work in the installed app. Expo Go and dev builds load code from your computer, so there is nothing to update.";
-  } else if (message) {
-    statusText = message;
-    statusColor = colors.danger;
   } else if (pending) {
     statusText = "Update downloaded — restart to apply it.";
     statusColor = colors.income;
@@ -163,10 +189,16 @@ export function UpdatesSection() {
     statusText = `Downloading update… ${progress}%`;
   } else if (checking) {
     statusText = "Checking for updates…";
+  } else if (downloadFailed) {
+    statusText = localMessage ?? "Couldn't download the update.";
+    statusColor = colors.danger;
   } else if (available) {
     statusText = "A new update is ready to download.";
+  } else if (localMessage) {
+    statusText = localMessage;
+    statusColor = colors.danger;
   } else if (checkedAt) {
-    statusText = `Up to date · checked ${relativeTime(checkedAt)}`;
+    statusText = `You're up to date · checked ${relativeTime(checkedAt)}`;
   }
 
   const buttonLabel = !enabled
@@ -177,11 +209,9 @@ export function UpdatesSection() {
         ? "Downloading…"
         : checking
           ? "Checking…"
-          : message
-            ? "Try again"
-            : available
-              ? "Download update"
-              : "Check for updates";
+          : available
+            ? "Download update"
+            : "Check for updates";
 
   const onPress = pending
     ? restartNow

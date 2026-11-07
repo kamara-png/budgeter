@@ -8,7 +8,13 @@
     ],
     "changed": [
       "Release notes on GitHub now come from the in-app changelog",
-      "APK builds are stable and finish reliably on CI again"
+      "APK builds are stable and finish reliably on CI again",
+      "Stats charts are lighter custom views: the ring shows the total in the middle and the bar chart is simpler and consistent with the rest of the app"
+    ],
+    "fixed": [
+      "Stats screen opened to a blank page and froze the app",
+      "Progress ring: small categories drew over their neighbors; tiny slices now merge into Other and every slice keeps its own space",
+      "Settings showed 'Failed to download remote update' right after a check when nothing new was available; it now says you're up to date"
     ]
   },
   {
