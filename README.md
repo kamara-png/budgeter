@@ -1,132 +1,142 @@
-# Budgeter 💸
+<div align="center">
 
-A local-first expense & budget tracker built with **React Native + Expo Router** and **TypeScript**. Track expenses and income, set monthly budgets per category, and visualise spending with charts — all stored on your device.
+# 💸 Budgeter
 
-Built as a portfolio project to demonstrate: Expo/React Native development, file-based routing, local persistence, state management, data visualisation, and theming.
+**Know where your money goes — before it's gone.**
 
-## Features
+A clean, no-nonsense budgeting app that helps you track spending, set limits, and actually stick to them.
 
-- **Track transactions** — add, edit, and delete expenses and income with amount, category, date, and note.
-- **Dashboard** — this month's spending, income, and net with leftover budget at a glance.
-- **Category budgets** — set a monthly limit per category and watch live progress bars (warning turns red when you go over).
-- **Multiple SIM cards** — keep separate transactions and budgets for each phone number, with an All SIMs view that adds them together.
-- **Search & filters** — filter by day, search notes/categories, and narrow by income vs. expense.
-- **Stats & charts** — donut chart of spending by category and a 6-month bar chart, browsable by month.
-- **Dark mode** — Light, Dark, or System theme.
-- **Updates inside the app** — JavaScript fixes arrive over the air; new versions download and install from Settings → Updates (checked once a day on launch), with the changelog shown first.
-- **Local only** — everything persists on-device behind `AsyncStorage` (via Zustand `persist`); no accounts, no server.
+![Status](https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge)
+![Version](https://img.shields.io/github/v/release/kamara-png/budgeter?style=for-the-badge&label=release)
+![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-## Tech stack
+[Download](https://github.com/kamara-png/budgeter/releases) · [Report a Bug](https://github.com/kamara-png/budgeter/issues) · [Request a Feature](https://github.com/kamara-png/budgeter/issues)
 
-| Area        | Choice                                    |
-|-------------|-------------------------------------------|
-| Framework   | Expo SDK 57, React Native 0.86            |
-| Language    | TypeScript (strict)                       |
-| Navigation  | Expo Router (file-based, `src/app`)       |
-| State       | Zustand + persist (AsyncStorage)          |
-| Charts      | react-native-gifted-charts + SVG          |
-| Dates       | date-fns                                  |
-| Icons       | @expo/vector-icons (Ionicons)             |
+</div>
 
-## Download
+---
 
-Grab the latest Android build from the [**Releases page**](https://github.com/kamara-png/budgeter/releases/latest).
+## 👀 Preview
 
-1. Download the `Budgeter-vX.Y.Z.apk` file **on your phone**.
-2. Tap it in your downloads and allow "install unknown apps" when prompted.
-3. Open **Budgeter** from your app drawer.
+<!-- Drop 2–3 screenshots or a short GIF here. This is the single biggest upgrade to any README. -->
+<div align="center">
 
-Updates install over the top of the previous version. iOS builds are not published here — Apple does not allow installing arbitrary `.ipa` files, so use Expo Go (`npm start`) or an EAS internal/TestFlight build on iOS.
+| Dashboard | Add Expense | Reports |
+|:---:|:---:|:---:|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Add Expense](docs/screenshots/add-expense.png) | ![Reports](docs/screenshots/reports.png) |
 
-## Releasing
+</div>
 
-Releases are built and published by GitHub Actions. The short version (full checklist in [`RELEASING.md`](RELEASING.md)):
+---
 
-```bash
-node scripts/draft-release-notes.mjs 1.3.1   # drafts src/constants/changelog.json from commits
-# edit the entry: group, dedupe, write it for users
-node scripts/release.mjs 1.3.1               # checks, bumps versions, commits, creates annotated tag v1.3.1
-git push origin main && git push origin v1.3.1
-```
+## ✨ Features
 
-Pushing the `v*` tag runs the CI checks, builds a signed Android APK, and publishes a GitHub Release whose notes are the changelog entry for that version, verbatim. The build fails if the entry is missing, so the GitHub Release and the in-app "What's new" always match. `workflow_dispatch` runs only upload the APK as a workflow artifact.
+- 📊 **Live overview**: see your income, spending, and what's left at a glance
+- 🏷️ **Categories**: sort expenses into groups like food, transport, rent, and fun
+- 🎯 **Budget limits**: set a cap per category and get warned before you blow it
+- 📈 **Reports**: spot patterns in where your money goes each week and month
+- 🔄 **Auto-updates**: new versions arrive on their own, so you're always current
+- 🔒 **Your data, your device**: [describe where data is stored]
 
-### Signing and size
+> Edit this list to match what Budgeter really does today. Only keep what's true.
 
-Every APK is signed with the keystore committed in `android-signing/` (wired in by `plugins/withReleaseSigning.js`), so new versions install over old ones instead of failing with a signature mismatch. Before uploading, CI runs `apksigner verify` and fails the build if the APK is unsigned, signed by a different key, or larger than **50 MiB**.
+---
 
-Builds ship `arm64-v8a` and `armeabi-v7a` only, with R8 minification, resource shrinking, and bundle compression enabled (`expo-build-properties` in `app.json`). The keystore is public by design — see `android-signing/README.md` for the trade-off and why it must be backed up.
+## 🛠️ Built With
 
-### How installed apps get updates
+| Layer | Tech |
+|---|---|
+| Language | [e.g. JavaScript / TypeScript / Python] |
+| Framework | [e.g. Electron / React / Expo] |
+| Storage | [e.g. SQLite / localStorage / Convex] |
 
-There are two channels, and they cover different things:
+---
 
-| Channel | Carries | Trigger | Installed app |
-|---|---|---|---|
-| **Over-the-air** (EAS Update) | JavaScript and assets only | push to `main`, after CI passes (`update.yml`) | downloads on launch, restart to apply |
-| **New APK** (GitHub Releases) | anything, including native changes | push a `v*` tag (`build.yml`) | checks once a day on launch (and from **Settings → Updates**), downloads the APK, opens Android's installer |
+## 🚀 Getting Started
 
-`runtimeVersion` follows the app version, so an OTA update only reaches builds with the same version. **If a change adds or upgrades a native module, bump the version in the same change** — otherwise the OTA update lands on older builds that don't have the module and crashes them. Every release is a new runtime, which is why new versions arrive as an APK.
+### Option 1: Just use it
 
-- The build fails if the tag and `app.json` disagree.
-- Every release needs an entry in `src/constants/changelog.json`; the in-app sheets and the GitHub Release both read from it.
-- The OTA workflow needs an `EXPO_TOKEN` repository secret ([create one](https://expo.dev/settings/access-tokens)).
-- The first install of a build with the in-app installer asks you to allow "Install unknown apps" for Budgeter once. That is Android's rule for apps installed outside the Play Store.
+1. Go to the [**Releases**](https://github.com/kamara-png/budgeter/releases) page
+2. Download the latest version for your system
+3. Install, open, and start budgeting
 
-## Getting started
+### Option 2: Run from source
 
 ```bash
+# 1. Clone the repo
+git clone https://github.com/kamara-png/budgeter.git
+cd budgeter
+
+# 2. Install dependencies
 npm install
-npm start          # then scan the QR code with Expo Go
-npm run web        # or run in the browser
+
+# 3. Start the app
+npm start
 ```
 
-> Tip: with Expo Go you can run the same code on Android and iOS instantly — no native build required.
+> Swap in the real commands for your setup.
 
-## Scripts
+**Requirements:** [e.g. Node.js 18+]
 
-```bash
-npm start          # start the dev server
-npm run web        # start with web support
-npm run android    # start and open on Android
-npm run ios        # start and open on iOS (macOS only)
-npx tsc --noEmit   # typecheck
-npx eslint .       # lint
-npx expo-doctor    # dependency/config health check
+---
+
+## 📖 How to Use
+
+1. **Set your income**: tell Budgeter what's coming in
+2. **Create categories**: add the buckets your money goes into
+3. **Log expenses**: add them as they happen
+4. **Check your reports**: adjust your limits and repeat
+
+---
+
+## 🗂️ Project Structure
+
+```
+budgeter/
+├── src/          # App source code
+├── docs/         # Screenshots and extra documentation
+├── package.json
+└── README.md
 ```
 
-## Project structure
+---
 
-```
-src/
-├── app/                    # Expo Router routes (every file is a screen)
-│   ├── _layout.tsx         # Root stack + theme
-│   ├── (tabs)/             # Bottom-tab group
-│   │   ├── _layout.tsx
-│   │   ├── index.tsx       # Home dashboard
-│   │   ├── transactions.tsx
-│   │   ├── stats.tsx
-│   │   └── settings.tsx
-│   └── transaction/[id].tsx  # Add/Edit modal ("new" = create)
-├── components/             # AmountInput, CategoryPicker, DatePicker, charts UI, etc.
-├── constants/              # Theme colors, default categories
-├── hooks/                  # useTheme (Store + system color scheme)
-├── store/                  # Zustand store + persistence
-├── types/                  # Shared TypeScript types
-└── utils/                  # money/date formatting, aggregations
-```
+## 🗺️ Roadmap
 
-## Roadmap ideas
+- [x] Track income and expenses
+- [x] Category budgets
+- [x] Auto-updates and releases
+- [ ] [Next feature]
+- [ ] [Another idea]
 
-- Recurring transactions
-- Export to CSV
-- Biometric lock
-- Per-SIM monthly reports
+Got an idea? [Open an issue](https://github.com/kamara-png/budgeter/issues) and let's talk.
 
-## Screenshots
+---
 
-_TODO: add screenshots here. Grab them from Expo Go and drop the images into the repo._
+## 🤝 Contributing
 
-## License
+Contributions are welcome!
 
-MIT
+1. Fork the repo
+2. Create a branch: `git checkout -b feature/cool-thing`
+3. Commit your changes: `git commit -m "Add cool thing"`
+4. Push: `git push origin feature/cool-thing`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Made with ☕ and way too many late nights by [Calvin Kamara](https://kamara-png.github.io/Calvin-Kamara)**
+
+[Portfolio](https://kamara-png.github.io/Calvin-Kamara) · [Instagram @ckay.png](https://instagram.com/ckay.png)
+
+⭐ If Budgeter helps you save a few shillings, drop a star!
+
+</div>
