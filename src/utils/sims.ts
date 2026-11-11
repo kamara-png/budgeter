@@ -54,3 +54,23 @@ export function mergeOverallBudgets(
   }
   return merged;
 }
+
+export interface FulizaTotals {
+  limit: number;
+  outstanding: number;
+}
+
+/** Sum the Fuliza limits and outstanding amounts for the SIMs in scope. */
+export function mergeFuliza(
+  fuliza: Record<string, { limit: number; outstanding: number }>,
+  simIds: string[],
+): FulizaTotals {
+  const merged: FulizaTotals = { limit: 0, outstanding: 0 };
+  for (const simId of simIds) {
+    const info = fuliza[simId];
+    if (!info) continue;
+    merged.limit += info.limit ?? 0;
+    merged.outstanding += info.outstanding ?? 0;
+  }
+  return merged;
+}

@@ -1,5 +1,5 @@
 import { useColorScheme } from "react-native";
-import { colors, type ThemeColors } from "@/constants/theme";
+import { buildAccentTheme, isAccentKey, type ThemeColors } from "@/constants/theme";
 import { useStore } from "@/store/useStore";
 
 export interface Theme {
@@ -9,15 +9,13 @@ export interface Theme {
 
 export function useTheme(): Theme {
   const themeMode = useStore((s) => s.themeMode);
-  const accent = useStore((s) => s.accent);
+  const storedAccent = useStore((s) => s.accent);
   const system = useColorScheme();
   const isDark = themeMode === "system" ? system === "dark" : themeMode === "dark";
-  const base = isDark ? colors.dark : colors.light;
+  // Guard against legacy hex accents persisted by older versions.
+  const accent = isAccentKey(storedAccent) ? storedAccent : "blue";
   return {
     isDark,
-    colors: {
-      ...base,
-      primary: accent,
-    },
+    colors: buildAccentTheme(accent, isDark),
   };
 }

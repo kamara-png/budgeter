@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { DEFAULT_CATEGORIES } from "@/constants/categories";
 import { CURRENCIES, DEFAULT_CURRENCY, type Currency } from "@/constants/currencies";
-import { DEFAULT_ACCENT } from "@/constants/theme";
+import { DEFAULT_ACCENT, DEFAULT_SIM_COLOR, isAccentKey, type AccentKey } from "@/constants/theme";
 import type {
   BudgetPeriod,
   Category,
@@ -18,6 +18,14 @@ export type NewTransactionInput = Omit<Transaction, "id" | "createdAt">;
 export type NewCategoryInput = Omit<Category, "id">;
 export type NewSimInput = Omit<Sim, "id">;
 
+/** Fuliza (M-Pesa overdraft) tracking per SIM. */
+export interface FulizaInfo {
+  /** Maximum overdraft the line allows. */
+  limit: number;
+  /** Amount currently borrowed and not yet repaid. */
+  outstanding: number;
+}
+
 interface AppState {
   transactions: Transaction[];
   categories: Category[];
@@ -28,6 +36,8 @@ interface AppState {
   themeMode: ThemeMode;
   currency: Currency;
   accent: string;
+  /** Fuliza overdraft tracking keyed by SIM id. */
+  fuliza: Record<string, FulizaInfo>;
 
   addTransaction: (input: NewTransactionInput) => void;
   updateTransaction: (id: string, patch: Partial<NewTransactionInput>) => void;
@@ -43,7 +53,9 @@ interface AppState {
   updateCategory: (id: string, patch: Partial<NewCategoryInput>) => void;
   deleteCategory: (id: string) => void;
   setCurrency: (code: string) => void;
-  setAccent: (hex: string) => void;
+  setAccent: (key: AccentKey) => void;
+  /** Set the Fuliza limit and/or outstanding amount for a SIM. */
+  setFuliza: (simId: string, patch: Partial<Omit<FulizaInfo, never>>) => void;
   clearAll: () => void;
 }
 
@@ -53,7 +65,7 @@ const FIRST_SIM: Sim = {
   id: FIRST_SIM_ID,
   label: "Main SIM",
   number: "",
-  color: DEFAULT_ACCENT,
+  color: DEFAULT_SIM_COLOR,
 };
 
 const EMPTY_OVERALL: Record<BudgetPeriod, number> = {
@@ -80,6 +92,33 @@ function isRecordOfRecords(value: unknown): value is Record<string, Record<strin
   );
 }
 
+/** Old hex accents mapped onto the closest named accent preset. */
+const LEGACY_ACCENT_HEX: Record<string, AccentKey> = {
+  "#4f46e5": "blue",
+  "#2563eb": "blue",
+  "#0ea5e9": "blue",
+  "#0891b2": "teal",
+  "#0d9488": "teal",
+  "#059669": "green",
+  "#65a30d": "green",
+  "#d97706": "amber",
+  "#ea580c": "amber",
+  "#dc2626": "rose",
+  "#db2777": "rose",
+  "#7c3aed": "purple",
+  "#8b5cf6": "purple",
+  "#475569": "purple",
+};
+
+function normalizeAccent(value: unknown): AccentKey {
+  if (typeof value === "string") {
+    if (isAccentKey(value)) return value;
+    const legacy = LEGACY_ACCENT_HEX[value.toLowerCase()];
+    if (legacy) return legacy;
+  }
+  return DEFAULT_ACCENT;
+}
+
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
@@ -92,6 +131,7 @@ export const useStore = create<AppState>()(
       themeMode: "system",
       currency: DEFAULT_CURRENCY,
       accent: DEFAULT_ACCENT,
+      fuliza: {},
 
       addTransaction: (input) =>
         set((state) => ({
@@ -133,12 +173,15 @@ export const useStore = create<AppState>()(
           delete budgets[id];
           const overallBudgets = { ...state.overallBudgets };
           delete overallBudgets[id];
+          const fuliza = { ...state.fuliza };
+          delete fuliza[id];
 
           return {
             sims,
             activeSimId: state.activeSimId === id ? ALL_SIMS : state.activeSimId,
             budgets,
             overallBudgets,
+            fuliza,
             transactions: state.transactions.map((t) =>
               t.simId === id ? { ...t, simId: fallbackId } : t,
             ),
@@ -201,7 +244,20 @@ export const useStore = create<AppState>()(
             CURRENCIES.find((c) => c.code === code) ?? DEFAULT_CURRENCY,
         }),
 
-      setAccent: (hex) => set({ accent: hex }),
+      setAccent: (accent) => set({ accent }),
+
+      setFuliza: (simId, patch) =>
+        set((state) => {
+          const current = state.fuliza[simId] ?? { limit: 0, outstanding: 0 };
+          const limit = patch.limit !== undefined ? Math.max(0, Math.round(patch.limit)) : current.limit;
+          const outstanding =
+            patch.outstanding !== undefined
+              ? Math.max(0, Math.round(patch.outstanding))
+              : current.outstanding;
+          return {
+            fuliza: { ...state.fuliza, [simId]: { limit, outstanding } },
+          };
+        }),
 
       clearAll: () =>
         set({
@@ -212,7 +268,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: "budgeter-storage-v1",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         transactions: state.transactions,
@@ -224,6 +280,7 @@ export const useStore = create<AppState>()(
         themeMode: state.themeMode,
         currency: state.currency,
         accent: state.accent,
+        fuliza: state.fuliza,
       }),
       migrate: (persisted) => {
         const state = (persisted ?? {}) as PersistedState;
@@ -266,6 +323,18 @@ export const useStore = create<AppState>()(
             ? requestedSimId
             : ALL_SIMS;
 
+        const fuliza: Record<string, FulizaInfo> = {};
+        if (isRecordOfRecords(state.fuliza)) {
+          for (const [simId, value] of Object.entries(state.fuliza)) {
+            const limit = typeof value.limit === "number" ? value.limit : 0;
+            const outstanding =
+              typeof value.outstanding === "number" ? value.outstanding : 0;
+            if (limit > 0 || outstanding > 0) {
+              fuliza[simId] = { limit, outstanding };
+            }
+          }
+        }
+
         return {
           ...state,
           sims,
@@ -273,6 +342,8 @@ export const useStore = create<AppState>()(
           budgets,
           overallBudgets,
           transactions,
+          accent: normalizeAccent(state.accent),
+          fuliza,
         } as AppState;
       },
     },

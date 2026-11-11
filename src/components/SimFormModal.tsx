@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { ACCENT_COLORS } from "@/constants/theme";
+import { SIM_COLORS } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import type { NewSimInput } from "@/store/useStore";
 import type { Sim } from "@/types";
@@ -25,7 +25,7 @@ export function SimFormModal({ initial, onSubmit, onDelete, onClose }: Props) {
 
   const [label, setLabel] = useState(initial?.label ?? "");
   const [number, setNumber] = useState(initial?.number ?? "");
-  const [color, setColor] = useState(initial?.color ?? ACCENT_COLORS[1].value);
+  const [color, setColor] = useState(initial?.color ?? SIM_COLORS[0].value);
   const [error, setError] = useState<string | null>(null);
 
   const save = () => {
@@ -83,7 +83,7 @@ export function SimFormModal({ initial, onSubmit, onDelete, onClose }: Props) {
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>Color</Text>
           <View style={styles.colorGrid}>
-            {ACCENT_COLORS.map((c) => (
+            {SIM_COLORS.map((c) => (
               <Pressable
                 key={c.value}
                 onPress={() => setColor(c.value)}

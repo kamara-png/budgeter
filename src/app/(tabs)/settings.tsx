@@ -19,7 +19,7 @@ import { SimChips } from "@/components/SimChips";
 import { SimFormModal } from "@/components/SimFormModal";
 import { UpdatesSection } from "@/components/updates/UpdatesSection";
 import { CURRENCIES } from "@/constants/currencies";
-import { ACCENT_COLORS } from "@/constants/theme";
+import { ACCENTS } from "@/constants/theme";
 import { useMoney } from "@/hooks/useMoney";
 import { useTheme } from "@/hooks/useTheme";
 import {
@@ -43,7 +43,7 @@ const OVERALL_PERIODS: { period: BudgetPeriod; label: string }[] = [
 ];
 
 export default function SettingsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { money } = useMoney();
 
   const categories = useStore((s) => s.categories);
@@ -51,6 +51,7 @@ export default function SettingsScreen() {
   const activeSimId = useStore((s) => s.activeSimId);
   const budgets = useStore((s) => s.budgets);
   const overallBudgets = useStore((s) => s.overallBudgets);
+  const fuliza = useStore((s) => s.fuliza);
   const transactions = useStore((s) => s.transactions);
   const themeMode = useStore((s) => s.themeMode);
   const currency = useStore((s) => s.currency);
@@ -58,6 +59,7 @@ export default function SettingsScreen() {
   const setThemeMode = useStore((s) => s.setThemeMode);
   const setBudget = useStore((s) => s.setBudget);
   const setOverallBudget = useStore((s) => s.setOverallBudget);
+  const setFuliza = useStore((s) => s.setFuliza);
   const setCurrency = useStore((s) => s.setCurrency);
   const setAccent = useStore((s) => s.setAccent);
   const addCategory = useStore((s) => s.addCategory);
@@ -85,6 +87,14 @@ export default function SettingsScreen() {
   } | null>(null);
   const [simEditor, setSimEditor] = useState<{ sim: Sim | null } | null>(null);
   const [showCurrency, setShowCurrency] = useState(false);
+  const [fulizaSimId, setFulizaSimId] = useState(() =>
+    activeSimId !== ALL_SIMS && sims.some((s) => s.id === activeSimId)
+      ? activeSimId
+      : (sims[0]?.id ?? ""),
+  );
+  const [editingFuliza, setEditingFuliza] = useState<"limit" | "outstanding" | null>(null);
+  const [fulizaInput, setFulizaInput] = useState("");
+  const [fulizaError, setFulizaError] = useState<string | null>(null);
 
   const budgetScopeIds = useMemo(
     () => simScopeIds(sims, budgetSimId),
@@ -110,8 +120,13 @@ export default function SettingsScreen() {
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const rows = budgetRows(budgetTransactions, budgetSet, categories, key);
   const rowByCategory = new Map(rows.map((r) => [r.category.id, r]));
-  const activeAccent = ACCENT_COLORS.find((c) => c.value === accent);
+  const activeAccent = ACCENTS.find((a) => a.key === accent);
   const budgetSim = sims.find((s) => s.id === budgetSimId);
+  const fulizaSimIdResolved = sims.some((s) => s.id === fulizaSimId)
+    ? fulizaSimId
+    : (sims[0]?.id ?? "");
+  const fulizaSim = sims.find((s) => s.id === fulizaSimIdResolved);
+  const fulizaInfo = fuliza[fulizaSimIdResolved] ?? { limit: 0, outstanding: 0 };
 
   const openBudget = (category: Category) => {
     const current = budgetSet[category.id] ?? 0;
@@ -161,6 +176,32 @@ export default function SettingsScreen() {
     if (!editingPeriod || !budgetSimId) return;
     setOverallBudget(budgetSimId, editingPeriod, 0);
     setEditingPeriod(null);
+  };
+
+  const openFuliza = (field: "limit" | "outstanding") => {
+    const current = fulizaInfo[field];
+    setFulizaInput(current > 0 ? current.toString() : "");
+    setFulizaError(null);
+    setEditingFuliza(field);
+  };
+  const closeFuliza = () => setEditingFuliza(null);
+
+  const saveFuliza = () => {
+    if (!editingFuliza || !fulizaSimIdResolved) return;
+    const value = Math.round(parseFloat(fulizaInput));
+    if (!Number.isFinite(value) || value < 0) {
+      setFulizaError("Enter a valid amount.");
+      return;
+    }
+    if (editingFuliza === "outstanding" && fulizaInfo.limit > 0 && value > fulizaInfo.limit) {
+      setFulizaError("You cannot owe more than the limit.");
+      return;
+    }
+    setFuliza(
+      fulizaSimIdResolved,
+      editingFuliza === "limit" ? { limit: value } : { outstanding: value },
+    );
+    setEditingFuliza(null);
   };
 
   const submitSim = (input: NewSimInput) => {
@@ -294,7 +335,7 @@ export default function SettingsScreen() {
               onPress={() => openOverallBudget(p.period)}
               style={[styles.row, { borderBottomColor: colors.border }]}
             >
-              <View style={[styles.rowIcon, { backgroundColor: `${accent}1F` }]}>
+              <View style={[styles.rowIcon, { backgroundColor: `${colors.primary}1F` }]}>
                 <Ionicons
                   name={
                     p.period === "daily"
@@ -304,7 +345,7 @@ export default function SettingsScreen() {
                         : "calendar-number-outline"
                   }
                   size={18}
-                  color={accent}
+                  color={colors.primary}
                 />
               </View>
               <View style={styles.rowBody}>
@@ -325,6 +366,65 @@ export default function SettingsScreen() {
             </Pressable>
           );
         })}
+      </View>
+
+      <SectionTitle icon="flash" title="Fuliza" />
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <SimChips value={fulizaSimIdResolved} onChange={setFulizaSimId} />
+        <Text style={[styles.hint, { color: colors.textSecondary, marginTop: 10, marginBottom: 0 }]}>
+          {fulizaSim
+            ? `Track the M-Pesa overdraft on ${fulizaSim.label}. Budgeter subtracts what you owe when working out your available money.`
+            : "Pick a SIM to track its Fuliza."}
+        </Text>
+        <Pressable
+          onPress={() => openFuliza("limit")}
+          style={[styles.row, { borderBottomColor: colors.border, marginTop: 4 }]}
+        >
+          <View style={[styles.rowIcon, { backgroundColor: `${colors.primary}1F` }]}>
+            <Ionicons name="trending-up" size={18} color={colors.primary} />
+          </View>
+          <View style={styles.rowBody}>
+            <Text style={[styles.rowName, { color: colors.text }]}>Overdraft limit</Text>
+            <Text style={[styles.rowType, { color: colors.textFaint }]}>
+              Maximum Fuliza on this line
+            </Text>
+          </View>
+          <Text
+            style={[
+              fulizaInfo.limit > 0 ? styles.rowAmount : styles.rowSet,
+              { color: fulizaInfo.limit > 0 ? colors.textSecondary : colors.textFaint },
+            ]}
+          >
+            {fulizaInfo.limit > 0 ? money(fulizaInfo.limit) : "Set"}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+        </Pressable>
+        <Pressable
+          onPress={() => openFuliza("outstanding")}
+          style={[styles.row, { borderBottomColor: colors.border }]}
+        >
+          <View style={[styles.rowIcon, { backgroundColor: `${colors.expense}1F` }]}>
+            <Ionicons name="trending-down" size={18} color={colors.expense} />
+          </View>
+          <View style={styles.rowBody}>
+            <Text style={[styles.rowName, { color: colors.text }]}>Amount owed</Text>
+            <Text style={[styles.rowType, { color: colors.textFaint }]}>
+              Fuliza balance not yet repaid
+            </Text>
+          </View>
+          <Text
+            style={[
+              fulizaInfo.outstanding > 0 ? styles.rowAmount : styles.rowSet,
+              {
+                color:
+                  fulizaInfo.outstanding > 0 ? colors.expense : colors.textFaint,
+              },
+            ]}
+          >
+            {fulizaInfo.outstanding > 0 ? money(fulizaInfo.outstanding) : "Not owing"}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+        </Pressable>
       </View>
 
       <SectionTitle icon="wallet" title="Monthly category budgets" />
@@ -405,25 +505,33 @@ export default function SettingsScreen() {
       <SectionTitle icon="color-palette" title="Accent color" />
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.accentGrid}>
-          {ACCENT_COLORS.map((c) => {
-            const selected = c.value === accent;
-            const swatchColor = c.value;
+          {ACCENTS.map((preset) => {
+            const swatch = isDark ? preset.dark : preset.light;
+            const selected = preset.key === accent;
             return (
               <Pressable
-                key={c.value}
-                onPress={() => setAccent(swatchColor)}
+                key={preset.key}
+                onPress={() => setAccent(preset.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`${preset.label} accent`}
+                accessibilityState={{ selected }}
                 style={[
                   styles.accentSwatch,
-                  { backgroundColor: swatchColor, borderColor: selected ? colors.text : "transparent" },
+                  {
+                    backgroundColor: swatch,
+                    borderColor: selected ? colors.text : "transparent",
+                  },
                 ]}
               >
-                {selected ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
+                {selected ? (
+                  <Ionicons name="checkmark" size={18} color={colors.card} />
+                ) : null}
               </Pressable>
             );
           })}
         </View>
         <Text style={[styles.accentName, { color: colors.textSecondary }]}>
-          {activeAccent ? `${activeAccent.name} · ${activeAccent.value}` : accent}
+          {activeAccent ? `${activeAccent.label} accent` : "Blue accent"}
         </Text>
       </View>
 
@@ -544,6 +652,45 @@ export default function SettingsScreen() {
               ) : null}
               <Pressable
                 onPress={saveOverallBudget}
+                style={[styles.modalSave, { backgroundColor: colors.primary }]}
+              >
+                <Text style={styles.modalSaveText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={editingFuliza !== null}
+        transparent
+        animationType="none"
+        onRequestClose={closeFuliza}
+      >
+        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.modal, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {editingFuliza === "limit" ? "Fuliza limit" : "Amount owed"}
+            </Text>
+            <Text style={[styles.modalSpent, { color: colors.textSecondary }]}>
+              {editingFuliza === "limit"
+                ? `Maximum overdraft${fulizaSim ? ` on ${fulizaSim.label}` : ""}. Set 0 to remove it.`
+                : `Fuliza balance currently owed${fulizaSim ? ` on ${fulizaSim.label}` : ""}. Set 0 when fully repaid.`}
+            </Text>
+            <View style={styles.modalAmount}>
+              <AmountInput value={fulizaInput} onChangeText={setFulizaInput} autoFocus />
+            </View>
+            {fulizaError ? (
+              <Text style={[styles.error, { color: colors.danger }]}>{fulizaError}</Text>
+            ) : null}
+            <View style={styles.modalActions}>
+              <Pressable onPress={closeFuliza} style={styles.modalButton}>
+                <Text style={[styles.modalButtonText, { color: colors.textSecondary }]}>
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={saveFuliza}
                 style={[styles.modalSave, { backgroundColor: colors.primary }]}
               >
                 <Text style={styles.modalSaveText}>Save</Text>
@@ -693,14 +840,13 @@ const styles = StyleSheet.create({
   },
   accentGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
+    justifyContent: "space-between",
     marginBottom: 14,
   },
   accentSwatch: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
